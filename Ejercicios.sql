@@ -244,7 +244,7 @@ from film f
 left join inventory i 
 on f.film_id = i.film_id
 group by f.title 
-having count (i.inventory_id )>0 ;
+having count (i.inventory_id )>=0 ;
 
 
 --30. Obtener los actores y el número de películas en las que ha actuado.
@@ -355,15 +355,10 @@ order by numero_veces_repetido desc
 /*42. Encuentra todos los alquileres y los nombres de los clientes que los 
 realizaron. */
 
-select f.title as titulo, concat(c.first_name, ' ',c.last_name ) as cliente
-from film f 
-inner join inventory i 
-on f.film_id  =f.film_id 
-inner join rental r 
-on r.inventory_id =i.inventory_id 
+select  r.rental_id as "alquiler", concat(c.first_name, ' ',c.last_name ) as cliente
+from rental r 
 inner join customer c 
-on c.customer_id = r.customer_id 
-order by titulo 
+on r.customer_id =c.customer_id 
 
 
 /*43. Muestra todos los clientes y sus alquileres si existen, incluyendo 
@@ -413,13 +408,13 @@ select concat (a.first_name  ,' ',a.last_name ) as actor
 from actor a 
 left join film_actor fa 
 on a.actor_id  = fa.actor_id 
-where fa.film_id  = null
+where fa.film_id  is null
 
 
 /*47. Selecciona el nombre de los actores y la cantidad de películas en las 
 que han participado. */
 
-select a.first_name as Actor, count(f.title) as Numero_peliculas
+select concat (a.first_name as Actor, a.last_name) as actor, count(f.title) as Numero_peliculas
 from actor a 
 inner join film_actor fa 
 on a.actor_id = fa.actor_id 
@@ -432,19 +427,19 @@ order by numero_peliculas asc
 /*48. Crea una vista llamada “actor_num_peliculasˮ que muestre los nombres 
 de los actores y el número de películas en las que han participado. */
 
-create view actor_num_peliculas as 
-select a.first_name as actor, count(f.title)as num_peliculas
+drop view if exists actor_num_peliculas;
+create view actor_num_peliculas as
+select concat (a.first_name, ' ', a.last_name) AS actor, count (fa.film_id) AS numero_peliculas
 from actor a 
-inner join film_actor fa 
-on a.actor_id = fa.actor_id
-inner join film f 
-on fa.film_id = f.film_id
-group by a.first_name
+inner join film_actor fa ON a.actor_id = fa.actor_id
+group by a.actor_id, a.first_name, a.last_name
 
 -- consulta
 
 select *
 from actor_num_peliculas
+order by numero_peliculas
+
 
 
 --49. Calcula el número total de alquileres realizados por cada cliente.
@@ -567,24 +562,29 @@ order by a.last_name
 /*56. Encuentra el nombre y apellido de los actores que no han actuado en 
 ninguna película de la categoría ‘Musicʼ. */
 
-select a.first_name as nombre, a.last_name as apellido, c."name" as categoria
+select a.first_name as nombre, a.last_name as apellido
 from actor a 
-inner join film_actor fa 
-on a.actor_id = fa.actor_id 
-inner join film f 
-on fa.film_id = f.film_id 
-inner join film_category fc 
-on f.film_id = fc.film_id 
-inner join category c 
-on fc.category_id = c.category_id 
-where c."name" <> 'Music'
+where a.actor_id not in(
+	select fa.actor_id
+	from film_actor fa
+	inner join film_category fc 
+	on fa.film_id = fc.film_id 
+	inner join category c 
+	on fc.category_id = c.category_id 
+	where c.name = 'Music'
+)
+
 
 /*57. Encuentra el título de todas las películas que fueron alquiladas por más 
 de 8 días. */
 
 select f.title as titulo
 from film f 
-where f.rental_duration >8
+inner join inventory i 
+on f.film_id =i.film_id 
+inner join rental r 
+on i.inventory_id =r.inventory_id 
+where (r.return_date ::date - r.rental_date ::date ) >8
 
 
 /*58. Encuentra el título de todas las películas que son de la misma categoría 
@@ -631,7 +631,7 @@ order by c.last_name
 /*61. Encuentra la cantidad total de películas alquiladas por categoría y 
 muestra el nombre de la categoría junto con el recuento de alquileres. */
 
-select count( f.film_id ) as Total_peliculas, c."name" as categoria, count(r.rental_id ) as recuento_alquileres
+select  c."name" as categoria, count(r.rental_id ) as recuento_alquileres
 from film f 
 inner join film_category fc 
 on f.film_id = fc.film_id 
@@ -659,10 +659,9 @@ having f.release_year =2006
 /*63. Obtén todas las combinaciones posibles de trabajadores con las tiendas 
 que tenemos. */
 
-select *
+select concat( s.first_name,' ', s.last_name) as trabajador, s.store_id  as id_tienda
 from staff s 
-full join store s2 
-on s.store_id = s2.store_id 
+cross join store s2 
 
 
 /*64. Encuentra la cantidad total de películas alquiladas por cada cliente y 
